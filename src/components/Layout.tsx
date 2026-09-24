@@ -204,12 +204,12 @@ export default function AppLayout({ children, showHeader = true, title = "" }: {
 
       {/* Floating Chat Button */}
       {!title && (
-        <button className="fixed bottom-24 md:bottom-8 right-4 md:right-8 w-12 md:w-14 h-12 md:h-14 bg-red-600 flex items-center justify-center text-white shadow-lg z-40 hover:bg-red-700 transition-colors">
+        <Link href="/support" className="fixed bottom-24 md:bottom-8 right-4 md:right-8 w-12 md:w-14 h-12 md:h-14 bg-red-600 flex items-center justify-center text-white shadow-lg z-40 hover:bg-red-700 transition-colors">
           <MessageCircle size={24} />
           {stats?.unreadMessages > 0 && (
             <span className="absolute top-0 right-0 w-3 md:w-4 h-3 md:h-4 bg-green-500 border-2 border-[#0a0a0a]"></span>
           )}
-        </button>
+        </Link>
       )}
     </div>
   );
