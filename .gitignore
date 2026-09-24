@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+
 
 # vercel
 .vercel
@@ -39,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+*.db
+*.sqlite
+android_app/build/
+android_app/.gradle/
+android_app/app/build/

@@ -1,0 +1,81 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+package="com.tesla.customercare" found in source AndroidManifest.xml: /home/david/Desktop/tesla/android_app/app/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.tesla.customercare" from the source AndroidManifest.xml: /home/david/Desktop/tesla/android_app/app/src/main/AndroidManifest.xml.
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeExtDexDebug
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugResources
+The message received from the daemon indicates that the daemon has disappeared.
+Build request sent: Build{id=ae12e2af-fd89-4b47-8c74-96f343cf15dd, currentDir=/home/david/Desktop/tesla/android_app}
+Attempting to read last messages from the daemon log...
+Daemon pid: 885895
+  log file: /home/david/.gradle/daemon/8.7/daemon-885895.out.log
+----- Last  20 lines from daemon log file - daemon-885895.out.log -----
+2026-09-24T18:08:04.490+0100 [DEBUG] [org.gradle.launcher.daemon.registry.PersistentDaemonRegistry] Marking busy by address: [d9720b07-9567-4c47-88a2-14e074f4e548 port:41551, addresses:[localhost/127.0.0.1]]
+2026-09-24T18:08:04.491+0100 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Waiting to acquire exclusive lock on daemon addresses registry.
+2026-09-24T18:08:04.491+0100 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Lock acquired on daemon addresses registry.
+2026-09-24T18:08:04.493+0100 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Releasing lock on daemon addresses registry.
+2026-09-24T18:08:04.494+0100 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] resetting idle timer
+2026-09-24T18:08:04.494+0100 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon is running. Sleeping until state changes.
+2026-09-24T18:08:04.495+0100 [INFO] [org.gradle.launcher.daemon.server.exec.StartBuildOrRespondWithBusy] Daemon is about to start building Build{id=ae12e2af-fd89-4b47-8c74-96f343cf15dd, currentDir=/home/david/Desktop/tesla/android_app}. Dispatching build started information...
+2026-09-24T18:08:04.495+0100 [DEBUG] [org.gradle.launcher.daemon.server.SynchronizedDispatchConnection] thread 29: dispatching org.gradle.launcher.daemon.protocol.BuildStarted@1cd783f5
+2026-09-24T18:08:04.497+0100 [DEBUG] [org.gradle.launcher.daemon.server.exec.EstablishBuildEnvironment] Configuring env variables: [PATH, XAUTHORITY, ANTIGRAVITY_APP_DATA_DIR, XMODIFIERS, ANTIGRAVITY_LS_ADDRESS, XDG_DATA_DIRS, GDMSESSION, ANTIGRAVITY_CONVERSATION_ID, GOOGLE_API_ENDPOINT, ANTIGRAVITY_CSRF_TOKEN, GIT_PAGER, GTK_IM_MODULE, ANTIGRAVITY_PROJECT_ID, DBUS_SESSION_BUS_ADDRESS, ANDROID_HOME, XDG_CURRENT_DESKTOP, ANTIGRAVITY_RUNTIME_BASE_URLS, INSIDE_NEMO_PYTHON, GSM_SKIP_SSH_AGENT_WORKAROUND, COLORTERM, USERNAME, SESSION_MANAGER, LOGNAME, ANTIGRAVITY_LS_VERSION, PWD, NVM_CD_FLAGS, SHELL, LESSOPEN, PAGER, GNOME_DESKTOP_SESSION_ID, GNOME_TERMINAL_SCREEN, GTK_MODULES, CLUTTER_IM_MODULE, LS_COLORS, XDG_SESSION_DESKTOP, SHLVL, QT_IM_MODULES, LESSCLOSE, ANTIGRAVITY_SOURCE_METADATA, QT_IM_MODULE, ANTIGRAVITY_TRAJECTORY_ID, TERM, XDG_CONFIG_DIRS, GNOME_TERMINAL_SERVICE, LANG, XDG_SESSION_ID, XDG_SESSION_TYPE, DISPLAY, NVM_INC, XDG_SESSION_CLASS, _, NVM_DIR, ANTIGRAVITY_ENV, ANTIGRAVITY_AGENTAPI_EXE, GTK3_MODULES, GPG_AGENT_INFO, DESKTOP_SESSION, USER, WINDOWPATH, QT_ACCESSIBILITY, VTE_VERSION, XDG_SEAT, SSH_AUTH_SOCK, ANTIGRAVITY_AGENT, XDG_VTNR, XDG_RUNTIME_DIR, NVM_BIN, HOME]
+2026-09-24T18:08:04.508+0100 [DEBUG] [org.gradle.launcher.daemon.server.exec.LogToClient] About to start relaying all logs to the client via the connection.
+2026-09-24T18:08:04.508+0100 [INFO] [org.gradle.launcher.daemon.server.exec.LogToClient] The client will now receive all logging from the daemon (pid: 885895). The daemon log file: /home/david/.gradle/daemon/8.7/daemon-885895.out.log
+2026-09-24T18:08:04.511+0100 [DEBUG] [org.gradle.launcher.daemon.server.exec.RequestStopIfSingleUsedDaemon] Requesting daemon stop after processing Build{id=ae12e2af-fd89-4b47-8c74-96f343cf15dd, currentDir=/home/david/Desktop/tesla/android_app}
+2026-09-24T18:08:04.512+0100 [LIFECYCLE] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Daemon will be stopped at the end of the build 
+2026-09-24T18:08:04.512+0100 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Stop as soon as idle requested. The daemon is busy: true
+2026-09-24T18:08:04.512+0100 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon stop has been requested. Sleeping until state changes.
+2026-09-24T18:08:04.513+0100 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] The daemon has started executing the build.
+2026-09-24T18:08:04.514+0100 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] Executing build with daemon context: DefaultDaemonContext[uid=759945f4-6e75-4119-94ad-dee660f18897,javaHome=/usr/lib/jvm/java-21-openjdk-amd64,daemonRegistryDir=/home/david/.gradle/daemon,pid=885895,idleTimeout=120000,priority=NORMAL,applyInstrumentationAgent=true,daemonOpts=-XX:MaxMetaspaceSize=1024m,--add-opens=java.base/java.util=ALL-UNNAMED,--add-opens=java.base/java.lang=ALL-UNNAMED,--add-opens=java.base/java.lang.invoke=ALL-UNNAMED,--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED,--add-opens=java.base/java.nio.charset=ALL-UNNAMED,--add-opens=java.base/java.net=ALL-UNNAMED,--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED,-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+package="com.tesla.customercare" found in source AndroidManifest.xml: /home/david/Desktop/tesla/android_app/app/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.tesla.customercare" from the source AndroidManifest.xml: /home/david/Desktop/tesla/android_app/app/src/main/AndroidManifest.xml.
+----- End of the daemon log -----
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+> Task :app:compileDebugKotlin

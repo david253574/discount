@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("USER") // ADMIN or USER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+  deviceTokens DeviceToken[]
+}
+
+model VehicleModel {
+  id           String    @id @default(cuid())
+  slug         String    @unique // e.g. 'model-3'
+  name         String
+  subtitle     String
+  image        String
+  range        String    // e.g. "272 mi"
+  speed        String    // e.g. "140 mph"
+  acceleration String    // e.g. "5.8 s"
+  price        Float
+  status       String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  variants     Variant[]
+  orders       Order[]
+}
+
+model Variant {
+  id           String       @id @default(cuid())
+  modelId      String
+  model        VehicleModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  slug         String // e.g. 'standard', 'long-range'
+  name         String
+  range        String
+  speed        String
+  acceleration String
+  price        Float
+  popular      Boolean      @default(false)
+  status       String       @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  orders       Order[]
+
+  @@unique([modelId, slug])
+}
+
+model Order {
+  id          String       @id @default(cuid())
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  modelId     String
+  model       VehicleModel @relation(fields: [modelId], references: [id])
+  variantId   String
+  variant     Variant      @relation(fields: [variantId], references: [id])
+  name        String
+  address     String
+  city        String
+  zip         String
+  paymentType String       // CASH, FINANCE
+  crypto      String?      // e.g. bitcoin, usdt
+  receiptUrl  String?
+  finalAmount Float?
+  discountAmount Float?
+  status      String       @default("PENDING") // PENDING, APPROVED, REJECTED, DELIVERED, CONFIRMED
+  phone                String?
+  country              String?
+  deliveryAddress      String?
+  deliveryPhone        String?
+  deliveryDatePref     String?
+  deliveryInstructions String?
+  deliveryStatus       String   @default("NOT_READY")
+  documents            Document[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  payment     Payment?
+  conversation Conversation?
+}
+
+model UserStat {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  totalBalance Float    @default(0)
+  totalProfits Float    @default(0)
+  totalInvested Float   @default(0)
+  totalAssets  Int      @default(0)
+  inTransit    Int      @default(0)
+  totalSpent   Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DiscountEligibility {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  amountToPay        Float?
+  createdAt          DateTime @default(now())
+}
+
+model DiscountCredential {
+  id           String   @id @default(cuid())
+  recipientName String
+  pinHash      String
+  reference    String   @unique
+  status       String   @default("ACTIVE") // ACTIVE, REDEEMED, REVOKED
+  createdAt    DateTime @default(now())
+  redeemedAt   DateTime?
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method          String
+  amountDue       Float
+  currency        String   @default("USD")
+  btcAddress      String?
+  txid            String?
+  status          String   @default("PENDING") // PENDING, UNDER_REVIEW, CONFIRMED, REJECTED
+  message         String?
+  submittedAt     DateTime?
+  confirmedAt     DateTime?
+  confirmedBy     String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  auditLogs       PaymentAuditLog[]
+}
+
+model PaymentAuditLog {
+  id             String   @id @default(cuid())
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  staffUserId    String?
+  action         String
+  previousStatus String?
+  newStatus      String?
+  reason         String?
+  createdAt      DateTime @default(now())
+}
+
+model Conversation {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status         String   @default("OPEN")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messages       Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         String       // "CUSTOMER" or "CUSTOMER_CARE"
+  senderUserId   String?
+  body           String
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+}
+
+
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String?  @default("android")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String
+  status    String   @default("REQUIRED")
+  fileUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([orderId, type])
+}
