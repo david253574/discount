@@ -105,3 +105,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+import { getSession } from '@/lib/auth'
+
+export async function GET() {
+  try {
+    const session = await getSession();
+    if (!session || !session.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const orders = await prisma.order.findMany({
+      where: { userId: session.id as string },
+      include: {
+        model: true,
+        variant: true,
+        payment: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json({ orders });
+  } catch (error) {
+    console.error('Fetch orders error', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

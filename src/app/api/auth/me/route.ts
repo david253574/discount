@@ -13,5 +13,28 @@ export async function GET() {
     select: { id: true, email: true, role: true }
   })
 
-  return NextResponse.json({ user })
+  if (!user) {
+    return NextResponse.json({ user: null })
+  }
+
+  // Fetch counts and dynamic state
+  const pendingOrders = await prisma.order.count({
+    where: { userId: user.id, status: 'PENDING' }
+  })
+  
+  const unreadMessages = await prisma.message.count({
+    where: { 
+      conversation: { order: { userId: user.id } }, 
+      sender: 'CUSTOMER_CARE', 
+      readAt: null 
+    }
+  })
+
+  return NextResponse.json({ 
+    user, 
+    stats: {
+      pendingOrders,
+      unreadMessages
+    }
+  })
 }

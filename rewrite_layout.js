@@ -1,4 +1,6 @@
+const fs = require('fs');
 
+const content = `
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -97,11 +99,11 @@ export default function AppLayout({ children, showHeader = true, title = "" }: {
                           key={itemIdx} 
                           href={item.href}
                           onClick={() => setMenuOpen(false)}
-                          className={`flex items-center justify-between px-3 py-3 text-sm transition-colors border-l-2 ${
+                          className={\`flex items-center justify-between px-3 py-3 text-sm transition-colors border-l-2 \${
                             isActive 
                               ? "bg-[#1a1a1a] border-white text-white" 
                               : "border-transparent text-gray-400 hover:bg-[#111] hover:text-gray-200"
-                          }`}
+                          }\`}
                         >
                           <div className="flex items-center gap-3">
                             <span className={isActive ? "text-white" : "text-gray-500"}>{item.icon}</span>
@@ -147,10 +149,10 @@ export default function AppLayout({ children, showHeader = true, title = "" }: {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
-              <Link href="/" className={`text-sm font-semibold tracking-wider hover:text-white transition-colors ${pathname === "/" ? "text-white" : "text-gray-400"}`}>SHOP</Link>
-              <Link href="/check-discount" className={`text-sm font-semibold tracking-wider hover:text-white transition-colors ${pathname === "/check-discount" ? "text-white" : "text-gray-400"}`}>DISCOUNT</Link>
-              <Link href="/dashboard" className={`text-sm font-semibold tracking-wider hover:text-white transition-colors ${pathname === "/dashboard" ? "text-white" : "text-gray-400"}`}>DASHBOARD</Link>
-              <Link href="/orders" className={`text-sm font-semibold tracking-wider hover:text-white transition-colors ${pathname === "/orders" ? "text-white" : "text-gray-400"}`}>ORDERS</Link>
+              <Link href="/" className={\`text-sm font-semibold tracking-wider hover:text-white transition-colors \${pathname === "/" ? "text-white" : "text-gray-400"}\`}>SHOP</Link>
+              <Link href="/check-discount" className={\`text-sm font-semibold tracking-wider hover:text-white transition-colors \${pathname === "/check-discount" ? "text-white" : "text-gray-400"}\`}>DISCOUNT</Link>
+              <Link href="/dashboard" className={\`text-sm font-semibold tracking-wider hover:text-white transition-colors \${pathname === "/dashboard" ? "text-white" : "text-gray-400"}\`}>DASHBOARD</Link>
+              <Link href="/orders" className={\`text-sm font-semibold tracking-wider hover:text-white transition-colors \${pathname === "/orders" ? "text-white" : "text-gray-400"}\`}>ORDERS</Link>
             </nav>
           </div>
 
@@ -179,22 +181,22 @@ export default function AppLayout({ children, showHeader = true, title = "" }: {
       {!title && (
         <nav className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#222] z-40 px-6 py-3 md:hidden">
           <div className="flex justify-between items-center max-w-md mx-auto">
-            <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === "/" ? "text-white" : "text-gray-500"}`}>
+            <Link href="/" className={\`flex flex-col items-center gap-1 \${pathname === "/" ? "text-white" : "text-gray-500"}\`}>
               <Home size={20} />
               <span className="text-[10px] font-semibold tracking-wider">SHOP</span>
             </Link>
-            <Link href="/dashboard" className={`flex flex-col items-center gap-1 ${pathname === "/dashboard" ? "text-white" : "text-gray-500"}`}>
+            <Link href="/dashboard" className={\`flex flex-col items-center gap-1 \${pathname === "/dashboard" ? "text-white" : "text-gray-500"}\`}>
               <Activity size={20} />
               <span className="text-[10px] font-semibold tracking-wider">DASHBOARD</span>
             </Link>
-            <Link href="/orders" className={`flex flex-col items-center gap-1 relative ${pathname === "/orders" ? "text-white" : "text-gray-500"}`}>
+            <Link href="/orders" className={\`flex flex-col items-center gap-1 relative \${pathname === "/orders" ? "text-white" : "text-gray-500"}\`}>
               <Box size={20} />
               {stats?.pendingOrders > 0 && (
                 <span className="absolute -top-1 -right-2 w-3 h-3 bg-red-600 rounded-full border border-[#0a0a0a]"></span>
               )}
               <span className="text-[10px] font-semibold tracking-wider">ORDERS</span>
             </Link>
-            <Link href="/settings" className={`flex flex-col items-center gap-1 ${pathname === "/settings" ? "text-white" : "text-gray-500"}`}>
+            <Link href="/settings" className={\`flex flex-col items-center gap-1 \${pathname === "/settings" ? "text-white" : "text-gray-500"}\`}>
               <Settings size={20} />
               <span className="text-[10px] font-semibold tracking-wider">SETTINGS</span>
             </Link>
@@ -214,3 +216,7 @@ export default function AppLayout({ children, showHeader = true, title = "" }: {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/components/Layout.tsx', content);
+console.log('Layout rewritten successfully.');
