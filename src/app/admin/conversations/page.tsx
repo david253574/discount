@@ -15,6 +15,10 @@ export default function AdminConversationsPage() {
   const fetchConversations = async () => {
     try {
       const res = await fetch('/api/admin/conversations');
+      if (res.status === 401) {
+        window.location.href = '/admin/login';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setConversations(data.conversations);
@@ -38,6 +42,10 @@ export default function AdminConversationsPage() {
     if (activeId) {
       const fetchActive = async () => {
         const res = await fetch(`/api/payment/${activeId}`);
+        if (res.status === 401) {
+          window.location.href = '/admin/login';
+          return;
+        }
         if (res.ok && !unmounted) {
           const data = await res.json();
           setActiveConv({ ...data.conversation, order: data.payment.order, payment: data.payment });
