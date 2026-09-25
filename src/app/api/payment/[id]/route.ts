@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const session = await getSession() as any;
     if (!session || !session.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store, max-age=0' } })
     }
     const payment = await prisma.payment.findFirst({
       where: { orderId: unwrappedParams.id },

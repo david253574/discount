@@ -18,10 +18,12 @@ export async function verify(input: string) {
   try {
     const { payload } = await jwtVerify(input, key, {
       algorithms: ['HS256'],
+      clockTolerance: 120,
     })
     return payload
   } catch (_error) {
-    return null
+    console.error("JWT verify error:", _error);
+    return null;
   }
 }
 
