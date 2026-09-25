@@ -21,19 +21,17 @@ export async function verify(input: string) {
       clockTolerance: 120,
     })
     return payload
-  } catch (_error: any) {
+  } catch (_error) {
     console.error("JWT verify error:", _error);
-    return { verify_failed: true, error_message: _error.message || String(_error) };
+    return null;
   }
 }
 
 export async function getSession() {
   const cookieStore = await cookies()
   const session = cookieStore.get('session')?.value
-  if (!session) return { error: 'No cookie found' };
-  const verified = await verify(session) as any;
-  if (verified?.verify_failed) return { error: 'Verification failed: ' + verified.error_message };
-  return verified;
+  if (!session) return null
+  return await verify(session)
 }
 
 export async function clearSession() {
