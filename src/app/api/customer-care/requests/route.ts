@@ -8,9 +8,7 @@ import { sendCustomerCareNotification } from '@/lib/whatsapp'
 export async function POST(request: Request) {
   try {
     const session = await getSession() as any;
-    if (!session || !session.id) {
-      return NextResponse.json({ error: 'Unauthorized', details: session?.error || 'Unknown' }, { status: 401 })
-    }
+    const userId = session?.id || null;
 
     const data = await request.json()
     
@@ -52,7 +50,7 @@ export async function POST(request: Request) {
     }
 
     let orderData: any = {
-      userId: session.id,
+      userId: userId,
       modelId: data.modelId,
       variantId: data.variantId,
       name: data.name || 'Customer',
@@ -66,15 +64,15 @@ export async function POST(request: Request) {
     let paymentIdForAudit = '';
     const order = await prisma.$transaction(async (tx) => {
       // Duplicate protection check
-      const existingOrder = await tx.order.findFirst({
+      const existingOrder = userId ? await tx.order.findFirst({
         where: {
-          userId: session.id,
+          userId: userId,
           modelId: data.modelId,
           variantId: data.variantId,
           paymentType: 'CUSTOMER_CARE',
           status: 'PENDING'
         }
-      });
+      }) : null;
       
       if (existingOrder) {
         return existingOrder;

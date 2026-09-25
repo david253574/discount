@@ -21,9 +21,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!payment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const isStaff = session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE';
-    if (!isStaff && payment.order.userId !== session.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const isStaff = session && (session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE');
+    if (payment.order.userId) {
+      if (!session || !session.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store, max-age=0' } });
+      }
+      if (!isStaff && payment.order.userId !== session.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     const conversation = await prisma.conversation.findUnique({

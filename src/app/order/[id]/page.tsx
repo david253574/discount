@@ -66,8 +66,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       if (res.ok) {
         const data = await res.json();
         router.push(`/payment/${data.order.id}`);
-      } else if (res.status === 401) {
-        router.push(`/login?redirect=/order/${id}`);
+      
       } else {
         const err = await res.json().catch(()=>({}));
         alert(err.error || 'An error occurred processing your request.');

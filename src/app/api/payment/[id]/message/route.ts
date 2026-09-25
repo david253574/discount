@@ -12,11 +12,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const session = await getSession() as any;
-    if (!session || !session.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
     
-    const isStaff = session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE';
+    const isStaff = session && (session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE');
     
     const conversation = await prisma.conversation.findUnique({ 
       where: { orderId: unwrappedParams.id },
@@ -25,20 +22,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     
     if (!conversation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (!isStaff && conversation.order.userId !== session.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (conversation.order.userId) {
+      if (!session || !session.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (!isStaff && conversation.order.userId !== session.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     let actualSender = 'CUSTOMER';
-    if (session.role === 'ADMIN') actualSender = 'ADMIN';
-    else if (session.role === 'CUSTOMER_CARE') actualSender = 'CUSTOMER_CARE';
+    if (session && session.role === 'ADMIN') actualSender = 'ADMIN';
+    else if (session && session.role === 'CUSTOMER_CARE') actualSender = 'CUSTOMER_CARE';
 
     const msg = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         body: body || '',
         sender: actualSender,
-        senderUserId: session.id,
+        senderUserId: session?.id,
         attachments: attachments ? {
             create: attachments.map((a: any) => ({
                 filename: a.filename,
