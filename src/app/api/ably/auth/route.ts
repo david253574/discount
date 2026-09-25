@@ -22,9 +22,6 @@ import { orderChannel, createTokenRequest } from '@/lib/ably';
 export async function GET(request: Request) {
   try {
     const session = await getSession() as any;
-    if (!session || !session.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
@@ -33,20 +30,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
     }
 
-    const isStaff =
-      session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE';
+    const isStaff = session && (session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE');
 
-    if (!isStaff) {
-      // Customer: verify they own the order
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { userId: true },
-      });
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { userId: true },
+    });
+    
+    if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-      // Return 404 regardless of existence for unauthorized orderId —
-      // consistent with how /api/payment/[id] handles unauthorized access.
-      if (!order || order.userId !== session.id) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (order.userId) {
+      if (!session || !session.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (!isStaff && order.userId !== session.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
     // Staff: no per-order ownership check needed (same as /api/admin/conversations)
@@ -54,7 +50,8 @@ export async function GET(request: Request) {
     const channel = orderChannel(orderId);
 
     // clientId is the session user's ID — used by Ably for audit/presence
-    const tokenRequest = await createTokenRequest(channel, session.id);
+    const clientId = session?.id || 'guest-' + Math.random().toString(36).substring(7);
+    const tokenRequest = await createTokenRequest(channel, clientId);
 
     return NextResponse.json(tokenRequest);
   } catch (err) {

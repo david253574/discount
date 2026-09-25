@@ -6,9 +6,6 @@ import path from 'path';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession() as any;
-  if (!session || !session.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   const { id } = await context.params;
 
@@ -31,19 +28,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const isCustomer = session.role === 'USER';
-  const isStaff = session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE';
+  const isStaff = session && (session.role === 'ADMIN' || session.role === 'CUSTOMER_CARE');
+  const orderUserId = attachment.message.conversation.order.userId;
 
   let authorized = false;
-  if (isStaff) {
+  if (!orderUserId) {
+    authorized = true; // Guest order
+  } else if (isStaff) {
     authorized = true;
-  } else if (isCustomer) {
-    if (attachment.message.conversation.order.userId === session.id) {
-      authorized = true;
-    }
+  } else if (session && session.id === orderUserId) {
+    authorized = true;
   }
 
   if (!authorized) {
+    if (!session || !session.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
