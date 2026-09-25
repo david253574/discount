@@ -2,6 +2,8 @@ package com.tesla.customercare
 import androidx.compose.runtime.DisposableEffect
 
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import android.content.Context
+import android.content.SharedPreferences
 import android.content.Intent
 import java.time.Instant
 import java.time.ZoneId
@@ -49,14 +51,33 @@ import org.json.JSONObject
 import java.io.IOException
 
 // Simple in-memory cookie jar for session
+lateinit var appContext: Context
+
 val cookieJar = object : CookieJar {
-    private var cookies = mutableListOf<Cookie>()
-    override fun saveFromResponse(url: HttpUrl, newCookies: List<Cookie>) {
-        cookies.clear()
-        cookies.addAll(newCookies)
+    private val PREFS_NAME = "cookie_prefs"
+    private val prefs: SharedPreferences by lazy {
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
+
+    override fun saveFromResponse(url: HttpUrl, newCookies: List<Cookie>) {
+        val editor = prefs.edit()
+        for (cookie in newCookies) {
+            editor.putString(cookie.name, cookie.toString())
+        }
+        editor.apply()
+    }
+
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
-        return cookies
+        val validCookies = mutableListOf<Cookie>()
+        val allEntries = prefs.all
+        for ((_, value) in allEntries) {
+            val cookieString = value as? String ?: continue
+            val parsed = Cookie.parse(url, cookieString)
+            if (parsed != null) {
+                validCookies.add(parsed)
+            }
+        }
+        return validCookies
     }
 }
 
@@ -65,6 +86,12 @@ val client = OkHttpClient.Builder()
     .build()
 
 val BASE_URL: String get() = BuildConfig.BASE_URL
+
+
+fun clearSessionCookies() {
+    val prefs = appContext.getSharedPreferences("cookie_prefs", Context.MODE_PRIVATE)
+    prefs.edit().clear().apply()
+}
 
 class MainActivity : ComponentActivity() {
     
@@ -121,6 +148,7 @@ class MainActivity : ComponentActivity() {
 
     
     override fun onCreate(savedInstanceState: Bundle?) {
+        appContext = this.applicationContext
         askNotificationPermission()
         registerFCMToken()
 
@@ -171,7 +199,7 @@ fun CustomerCareApp(initialOrderId: String? = null) {
                 })
                 is Screen.Dashboard -> DashboardScreen(
                     onNavigate = { currentScreen = it },
-                    onLogout = { currentScreen = Screen.Login }
+                    onLogout = { clearSessionCookies(); currentScreen = Screen.Login }
                 )
                 is Screen.Payments -> PaymentsScreen(
                     onBack = { currentScreen = Screen.Dashboard }
