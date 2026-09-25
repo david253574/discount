@@ -75,3 +75,39 @@ export async function sendCustomerCarePushNotification(requestData: {
     console.error('Failed to send Customer Care push notification:', error);
   }
 }
+
+export async function sendNewMessagePushNotification(orderId: string, sender: string, text: string) {
+  try {
+    const staffMembers = await prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'CUSTOMER_CARE'] } },
+      include: { deviceTokens: true }
+    });
+
+    const tokens: string[] = [];
+    staffMembers.forEach(staff => {
+      staff.deviceTokens.forEach(dt => tokens.push(dt.token));
+    });
+
+    if (tokens.length === 0) return;
+
+    const payload = {
+      notification: {
+        title: 'New Message',
+        body: `You have a new message from a customer.`,
+      },
+      data: {
+        type: 'NEW_MESSAGE',
+        orderId,
+      },
+      tokens: tokens,
+    };
+
+    if (getApps().length > 0) {
+      await getMessaging().sendEachForMulticast(payload);
+    } else {
+      console.log('[MOCK FCM] Would have sent new message notification:', payload);
+    }
+  } catch (error) {
+    console.error('Failed to send new message push notification:', error);
+  }
+}

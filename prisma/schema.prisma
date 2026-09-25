@@ -168,6 +168,18 @@ model Message {
   body           String
   createdAt      DateTime     @default(now())
   readAt         DateTime?
+  attachments    Attachment[]
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename  String
+  mimeType  String
+  size      Int
+  url       String
+  createdAt DateTime @default(now())
 }
 
 

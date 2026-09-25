@@ -1,4 +1,15 @@
 package com.tesla.customercare
+import androidx.compose.runtime.DisposableEffect
+
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import android.content.Intent
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import io.ably.lib.realtime.AblyRealtime
+import io.ably.lib.realtime.Channel
+import io.ably.lib.realtime.ChannelState
+import io.ably.lib.types.ClientOptions
 
 import android.os.Bundle
 import android.Manifest
@@ -30,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -52,8 +64,7 @@ val client = OkHttpClient.Builder()
     .cookieJar(cookieJar)
     .build()
 
-// Change this to actual IP if testing on device, 10.0.2.2 is emulator localhost
-const val BASE_URL = "http://10.0.2.2:3000/api" 
+val BASE_URL: String get() = BuildConfig.BASE_URL
 
 class MainActivity : ComponentActivity() {
     
@@ -97,7 +108,7 @@ class MainActivity : ComponentActivity() {
             
             val requestBody = json.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
-                .url("${BASE_URL}/api/auth/fcm-token")
+                .url("${BASE_URL}/auth/fcm-token")
                 .post(requestBody)
                 .build()
                 
@@ -108,21 +119,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         askNotificationPermission()
+        registerFCMToken()
 
         super.onCreate(savedInstanceState)
+        
+        var initialOrderId: String? = intent?.getStringExtra("orderId")
+
         setContent {
-            CustomerCareApp()
+            CustomerCareApp(initialOrderId = initialOrderId)
         }
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
     }
 }
 
-enum class Screen { Login, Dashboard, Payments, Conversations }
+object AppState { var currentOrderId: String? = null }
+
+sealed class Screen { object Login : Screen(); object Dashboard : Screen(); object Payments : Screen(); object Conversations : Screen(); data class Chat(val orderId: String) : Screen() }
 
 @Composable
-fun CustomerCareApp() {
-    var currentScreen by remember { mutableStateOf(Screen.Login) }
+fun CustomerCareApp(initialOrderId: String? = null) {
+    
+    var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+    
+    LaunchedEffect(initialOrderId) {
+        if (initialOrderId != null && cookieJar.loadForRequest("$BASE_URL".toHttpUrlOrNull()!!).isNotEmpty()) {
+            currentScreen = Screen.Chat(initialOrderId)
+        }
+    }
+
     
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -135,17 +165,24 @@ fun CustomerCareApp() {
         )
     ) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            when (currentScreen) {
-                Screen.Login -> LoginScreen(onLoginSuccess = { currentScreen = Screen.Dashboard })
-                Screen.Dashboard -> DashboardScreen(
+            when (val s = currentScreen) {
+                is Screen.Login -> LoginScreen(onLoginSuccess = { 
+                    currentScreen = if (initialOrderId != null) Screen.Chat(initialOrderId) else Screen.Dashboard 
+                })
+                is Screen.Dashboard -> DashboardScreen(
                     onNavigate = { currentScreen = it },
                     onLogout = { currentScreen = Screen.Login }
                 )
-                Screen.Payments -> PaymentsScreen(
+                is Screen.Payments -> PaymentsScreen(
                     onBack = { currentScreen = Screen.Dashboard }
                 )
-                Screen.Conversations -> ConversationsScreen(
-                    onBack = { currentScreen = Screen.Dashboard }
+                is Screen.Conversations -> ConversationsScreen(
+                    onBack = { currentScreen = Screen.Dashboard },
+                    onChat = { currentScreen = Screen.Chat(it) }
+                )
+                is Screen.Chat -> ConversationDetailScreen(
+                    orderId = s.orderId,
+                    onBack = { currentScreen = Screen.Conversations }
                 )
             }
         }
@@ -155,7 +192,7 @@ fun CustomerCareApp() {
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
     var email by remember { mutableStateOf("admin@tesla.com") } // default for ease
-    var password by remember { mutableStateOf("password") }
+    var password by remember { mutableStateOf("admin123") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -517,14 +554,392 @@ fun PaymentReviewScreen(payment: JSONObject, onBack: () -> Unit, onUpdate: () ->
     }
 }
 
+
 @Composable
-fun ConversationsScreen(onBack: () -> Unit) {
+fun ConversationsScreen(onBack: () -> Unit, onChat: (String) -> Unit) {
+    var conversations by remember { mutableStateOf<org.json.JSONArray?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun fetchConversations() {
+        loading = true
+        error = null
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val request = Request.Builder().url("$BASE_URL/admin/conversations").build()
+                val response = client.newCall(request).execute()
+                val respStr = response.body?.string()
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful && respStr != null) {
+                        conversations = JSONObject(respStr).optJSONArray("conversations")
+                    } else {
+                        error = "Failed to load conversations (HTTP ${response.code})"
+                    }
+                    loading = false
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    error = e.message
+                    loading = false
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            fetchConversations()
+            kotlinx.coroutines.delay(5000)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("CONVERSATIONS", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+            Row {
+                Text("Refresh", color = Color(0xFF3b82f6), modifier = Modifier.clickable { fetchConversations() })
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Inbox interface would be populated here.", color = Color.Gray)
+        
+        if (loading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else if (error != null) {
+            Text("Error: $error", color = Color.Red)
+        } else if (conversations == null || conversations!!.length() == 0) {
+            Text("No conversations found.", color = Color.Gray)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(conversations!!.length()) { i ->
+                    val conv = conversations!!.getJSONObject(i)
+                    val order = conv.optJSONObject("order")
+                    val orderId = conv.optString("orderId")
+                    val name = order?.optString("name", "Unknown") ?: "Unknown"
+                    val msgs = conv.optJSONArray("messages")
+                    val latestMsg = if (msgs != null && msgs.length() > 0) msgs.getJSONObject(0).optString("body") else "No messages"
+                    
+                    Surface(
+                        color = Color(0xFF1a1a1a),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onChat(orderId) }
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(name, fontWeight = FontWeight.Bold)
+                                Text(conv.optString("status"), color = if (conv.optString("status") == "OPEN") Color.Green else Color.Gray, fontSize = 12.sp)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Order #${orderId.take(8).uppercase()}", fontSize = 12.sp, color = Color.Gray)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(latestMsg, fontSize = 14.sp, color = Color.LightGray, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
+
+@Composable
+fun ConversationDetailScreen(orderId: String, onBack: () -> Unit) {
+    DisposableEffect(orderId) {
+        AppState.currentOrderId = orderId
+        onDispose {
+            if (AppState.currentOrderId == orderId) {
+                AppState.currentOrderId = null
+            }
+        }
+    }
+    var messages by remember { mutableStateOf<org.json.JSONArray?>(null) }
+    var paymentCtx by remember { mutableStateOf<JSONObject?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var sending by remember { mutableStateOf(false) }
+    var chatBody by remember { mutableStateOf("") }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var uploadUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uploadUri = uri
+    }
+
+    fun fetchChat() {
+        // Called from DisposableEffect scope (Dispatchers.IO) or LaunchedEffect.
+        // No GlobalScope — lifecycle managed by the caller's coroutine scope.
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val request = Request.Builder().url("$BASE_URL/payment/$orderId").build()
+                val response = client.newCall(request).execute()
+                val respStr = response.body?.string()
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful && respStr != null) {
+                        val json = JSONObject(respStr)
+                        paymentCtx = json.optJSONObject("payment")
+                        messages = json.optJSONObject("conversation")?.optJSONArray("messages")
+                    }
+                    loading = false
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { loading = false }
+            }
+        }
+    }
+
+    fun sendMsg() {
+        if (chatBody.isBlank() && uploadUri == null) return
+        sending = true
+        val textToSend = chatBody
+        val uriToSend = uploadUri
+        
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                var finalAttachments = org.json.JSONArray()
+                
+                if (uriToSend != null) {
+                    val cr = context.contentResolver
+                    val mime = cr.getType(uriToSend) ?: "application/octet-stream"
+                    val bytes = cr.openInputStream(uriToSend)?.readBytes()
+                    if (bytes != null) {
+                        val requestBody = MultipartBody.Builder()
+                            .setType(MultipartBody.FORM)
+                            .addFormDataPart("file", "upload", RequestBody.create(mime.toMediaType(), bytes))
+                            .build()
+                        val uploadReq = Request.Builder().url("$BASE_URL/upload").post(requestBody).build()
+                        val uploadRes = client.newCall(uploadReq).execute()
+                        if (uploadRes.isSuccessful) {
+                            val upStr = uploadRes.body?.string()
+                            if (upStr != null) {
+                                val upJson = JSONObject(upStr)
+                                finalAttachments.put(JSONObject().apply {
+                                    put("url", upJson.optString("url"))
+                                    put("filename", upJson.optString("filename"))
+                                    put("mimeType", upJson.optString("contentType"))
+                                    put("size", upJson.optInt("size", 0))
+                                })
+                            }
+                        }
+                    }
+                }
+                
+                val payload = JSONObject().apply {
+                    put("body", textToSend)
+                    if (finalAttachments.length() > 0) put("attachments", finalAttachments)
+                }
+                val reqBody = payload.toString().toRequestBody("application/json".toMediaType())
+                val req = Request.Builder().url("$BASE_URL/payment/$orderId/message").post(reqBody).build()
+                val res = client.newCall(req).execute()
+                
+                withContext(Dispatchers.Main) {
+                    if (res.isSuccessful) {
+                        chatBody = ""
+                        uploadUri = null
+                        fetchChat()
+                    } else {
+                        android.widget.Toast.makeText(context, "Failed to send", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    sending = false
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    sending = false
+                    android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // ─── Realtime: Ably subscription (lifecycle-aware, no GlobalScope) ────────
+    // This DisposableEffect runs when orderId changes and cleans up on exit.
+    // It fetches an Ably token from /api/ably/auth (using the OkHttp client
+    // that carries the session cookie), subscribes to the private order channel,
+    // and calls fetchChat() when a message.created event arrives.
+    //
+    // The Ably event payload is NOT trusted for authorization — fetchChat()
+    // calls GET /api/payment/[orderId] which validates the session server-side.
+    DisposableEffect(orderId) {
+        var ablyRealtime: AblyRealtime? = null
+
+        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            // 1. Initial data load
+            fetchChat()
+
+            // 2. Request Ably token from the server (session cookie is sent automatically)
+            try {
+                val tokenReq = Request.Builder()
+                    .url("$BASE_URL/ably/auth?orderId=$orderId")
+                    .build()
+                val tokenRes = client.newCall(tokenReq).execute()
+                val tokenBody = tokenRes.body?.string()
+
+                if (!tokenRes.isSuccessful || tokenBody == null) {
+                    Log.w("Ably", "Token request failed (${tokenRes.code}) — no realtime for this session")
+                    return@launch
+                }
+
+                val tokenJson = JSONObject(tokenBody)
+
+                // 3. Build Ably ClientOptions with the scoped token
+                val opts = ClientOptions().apply {
+                    authCallback = io.ably.lib.rest.Auth.TokenCallback { _ ->
+                        io.ably.lib.rest.Auth.TokenDetails().apply {
+                            token = tokenJson.optString("token")
+                        }
+                    }
+                    echoMessages = false
+                }
+
+                // 4. Connect to Ably and subscribe to the private order channel
+                ablyRealtime = AblyRealtime(opts)
+                val channelName = "private:customer-care:order:$orderId"
+                val channel = ablyRealtime!!.channels.get(channelName)
+
+                channel.subscribe("message.created") { _ ->
+                    // Do NOT trust the event payload — fetch authoritative data
+                    scope.launch { fetchChat() }
+                }
+
+                // 5. Reconcile state after reconnect (events may have been missed)
+                ablyRealtime!!.connection.on(io.ably.lib.realtime.ConnectionState.connected) { _ ->
+                    scope.launch { fetchChat() }
+                }
+
+                Log.d("Ably", "Subscribed to $channelName")
+            } catch (e: Exception) {
+                Log.e("Ably", "Subscription error: ${e.message}")
+                // No crash — screen still shows data from the initial fetchChat()
+            }
+        }
+
+        onDispose {
+            scope.cancel()
+            try { ablyRealtime?.close() } catch (_: Exception) {}
+            if (AppState.currentOrderId == orderId) {
+                AppState.currentOrderId = null
+            }
+            Log.d("Ably", "Unsubscribed from order $orderId")
+        }
+    }
+
+    // Initial load fallback: if Ably takes a moment to connect the screen
+    // is not blank — the DisposableEffect above calls fetchChat() immediately.
+    LaunchedEffect(orderId) {
+        fetchChat()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0a0a0a))) {
+        Row(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("ORDER #${orderId.take(8).uppercase()}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Back", color = Color.Gray, modifier = Modifier.clickable { onBack() })
+        }
+        
+        if (loading && messages == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 24.dp), reverseLayout = false) {
+                val len = messages?.length() ?: 0
+                items(len) { i ->
+                    val msg = messages!!.getJSONObject(i)
+                    val senderValue = msg.optString("sender")
+                    val isStaff = senderValue == "CUSTOMER_CARE" || senderValue == "ADMIN"
+                    
+                    val senderDisplay = when (senderValue) {
+                        "CUSTOMER" -> "CUSTOMER"
+                        "CUSTOMER_CARE" -> "CUSTOMER CARE"
+                        "ADMIN" -> "ADMIN"
+                        else -> "UNKNOWN"
+                    }
+
+                    val atts = msg.optJSONArray("attachments")
+                    
+                    var timeDisplay = ""
+                    try {
+                        val dateStr = msg.optString("createdAt")
+                        if (dateStr.isNotBlank()) {
+                            val instant = Instant.parse(dateStr)
+                            val formatter = DateTimeFormatter.ofPattern("h:mm a").withZone(ZoneId.systemDefault())
+                            timeDisplay = formatter.format(instant)
+                        }
+                    } catch (e: Exception) {}
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = if (isStaff) Arrangement.End else Arrangement.Start
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .background(if (isStaff) Color(0xFF1d4ed8) else Color(0xFF222222), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                                .fillMaxWidth(0.85f)
+                        ) {
+                            Text(senderDisplay, fontSize = 10.sp, color = Color.LightGray, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (msg.optString("body").isNotBlank()) {
+                                Text(msg.optString("body"), color = Color.White)
+                            }
+                            
+                            if (atts != null && atts.length() > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                for (j in 0 until atts.length()) {
+                                    val att = atts.getJSONObject(j)
+                                    val url = "https://christmasdiscounts.vercel.app" + att.optString("url")
+                                    val mime = att.optString("mimeType")
+                                    if (mime.startsWith("image/")) {
+                                        coil.compose.AsyncImage(
+                                            model = coil.request.ImageRequest.Builder(context)
+                                                .data(url)
+                                                .build(),
+                                            imageLoader = coil.ImageLoader.Builder(context).okHttpClient(client).build(),
+                                            contentDescription = "Attachment",
+                                            modifier = Modifier.height(150.dp).fillMaxWidth().background(Color.Black)
+                                        )
+                                    } else {
+                                        Text("📎 ${att.optString("filename")}", color = Color(0xFF60a5fa), modifier = Modifier.clickable {
+                                            // Handle file download
+                                            android.widget.Toast.makeText(context, "Downloading file...", android.widget.Toast.LENGTH_SHORT).show()
+                                        })
+                                    }
+                                }
+                            }
+                            
+                            if (timeDisplay.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(timeDisplay, fontSize = 9.sp, color = Color.Gray, modifier = Modifier.align(Alignment.End))
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF111111)).padding(16.dp)) {
+                if (uploadUri != null) {
+                    Text("Selected: ${uploadUri!!.lastPathSegment}", color = Color.Green, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(onClick = { filePickerLauncher.launch("*/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))) {
+                        Text("+")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = chatBody,
+                        onValueChange = { chatBody = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Reply...") }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = { sendMsg() }, enabled = !sending && (chatBody.isNotBlank() || uploadUri != null)) {
+                        Text("Send")
+                    }
+                }
+            }
+        }
+    }
+}
+

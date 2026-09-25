@@ -1,0 +1,8 @@
+with open("android_app/app/src/main/java/com/tesla/customercare/MainActivity.kt", "r") as f:
+    content = f.read()
+
+content = content.replace("import okhttp3.HttpUrl.Companion.toHttpUrlOrNull\nimport android.content.Intent\n", "")
+content = content.replace("package com.tesla.customercare\n", "package com.tesla.customercare\n\nimport okhttp3.HttpUrl.Companion.toHttpUrlOrNull\nimport android.content.Intent\n")
+
+with open("android_app/app/src/main/java/com/tesla/customercare/MainActivity.kt", "w") as f:
+    f.write(content)

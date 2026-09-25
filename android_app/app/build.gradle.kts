@@ -14,19 +14,24 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        
+
         vectorDrawables {
             useSupportLibrary = true
         }
     }
 
     buildTypes {
+        debug {
+            // Production Vercel URL — works on physical device, emulator, anywhere
+            buildConfigField("String", "BASE_URL", "\"https://christmasdiscounts.vercel.app/api\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "BASE_URL", "\"https://christmasdiscounts.vercel.app/api\"")
         }
     }
     compileOptions {
@@ -38,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
@@ -50,6 +56,7 @@ android {
 }
 
 dependencies {
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.core:core-ktx:1.12.0")
@@ -66,6 +73,9 @@ dependencies {
     
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Ably realtime (for active conversation updates)
+    implementation("io.ably:ably-android:1.2.45")
     
     // JSON
     implementation("org.json:json:20231013")

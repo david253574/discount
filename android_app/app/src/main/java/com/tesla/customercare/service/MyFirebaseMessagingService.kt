@@ -24,10 +24,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
-        val title = remoteMessage.notification?.title ?: "New Request"
-        val body = remoteMessage.notification?.body ?: ""
         val type = remoteMessage.data["type"]
         val orderId = remoteMessage.data["orderId"]
+        
+        // Suppress notification if we are currently looking at this exact conversation
+        if (com.tesla.customercare.AppState.currentOrderId != null && com.tesla.customercare.AppState.currentOrderId == orderId) {
+            return
+        }
+
+        val title = remoteMessage.notification?.title ?: "New Request"
+        val body = remoteMessage.notification?.body ?: ""
 
         showNotification(title, body, orderId)
     }

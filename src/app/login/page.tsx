@@ -19,7 +19,9 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
       });
       if (res.ok) {
-        window.location.href = '/dashboard';
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get('redirect') || '/dashboard';
+        window.location.href = redirectUrl;
       } else {
         const data = await res.json();
         setError(data.error || 'Login failed');

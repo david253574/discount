@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+import { getSession } from '@/lib/auth'
+
 export async function POST(request: Request) {
   try {
+    const session = await getSession() as any;
+    if (!session || !session.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const data = await request.json()
     
     // Validate basic requirements
@@ -47,6 +54,7 @@ export async function POST(request: Request) {
     }
 
     let orderData: any = {
+      userId: session.id,
       modelId: data.modelId,
       variantId: data.variantId,
       name: data.name,
@@ -105,8 +113,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-import { getSession } from '@/lib/auth'
 
 export async function GET() {
   try {

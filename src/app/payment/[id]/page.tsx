@@ -21,10 +21,15 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
   const [showBitcoinForm, setShowBitcoinForm] = useState(false);
   const [chatBody, setChatBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const fetchData = async () => {
     try {
       const res = await fetch(`/api/payment/${orderId}`);
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = `/login?redirect=/payment/${orderId}`;
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -34,10 +39,61 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  // ─── Realtime: Ably subscription ─────────────────────────────────────────
+  // When Ably delivers a `message.created` event we call fetchData() to get
+  // the authoritative data from the existing authenticated API.
+  // We do NOT trust the Ably payload itself as authorization.
+  //
+  // ABLY_POLLING_FALLBACK env var: set NEXT_PUBLIC_ABLY_POLLING_FALLBACK=true
+  // in your .env.local to revert to 3-second polling during transition/testing.
   useEffect(() => {
+    let ablyClient: any = null;
+    let channel: any = null;
+    let unmounted = false;
+
+    const setupAbly = async () => {
+      // Feature flag: opt out of Ably and use polling during transition
+      if (process.env.NEXT_PUBLIC_ABLY_POLLING_FALLBACK === 'true') return;
+
+      try {
+        const { Realtime } = await import('ably');
+
+        const tokenResponse = await fetch(`/api/ably/auth?orderId=${orderId}`);
+        if (!tokenResponse.ok || unmounted) return;
+        const tokenData = await tokenResponse.json();
+
+        ablyClient = new Realtime({ authCallback: (_data: any, cb: any) => cb(null, tokenData) });
+        channel = ablyClient.channels.get(`private:customer-care:order:${orderId}`);
+
+        channel.subscribe('message.created', () => {
+          if (!unmounted) fetchData();
+        });
+
+        // Reconcile on reconnect in case events were missed during disconnect
+        ablyClient.connection.on('connected', () => {
+          if (!unmounted) fetchData();
+        });
+      } catch (err) {
+        console.warn('[Ably] Subscription failed, relying on polling fallback:', err);
+      }
+    };
+
+    // Always do an initial fetch immediately
     fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    setupAbly();
+
+    // Polling fallback — active only when Ably is unavailable or flag is set
+    const interval =
+      process.env.NEXT_PUBLIC_ABLY_POLLING_FALLBACK === 'true'
+        ? setInterval(fetchData, 3000)
+        : null;
+
+    return () => {
+      unmounted = true;
+      if (channel) { try { channel.unsubscribe(); } catch (_) {} }
+      if (ablyClient) { try { ablyClient.close(); } catch (_) {} }
+      if (interval) clearInterval(interval);
+    };
   }, [orderId]);
 
   const copyAddress = () => {
@@ -339,20 +395,43 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
 
-                {conversation?.messages?.map((msg: any) => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'CUSTOMER' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[90%] md:max-w-[80%] p-4 text-sm ${
-                      msg.sender === 'CUSTOMER' 
-                        ? 'bg-[#1a1a1a] text-white border-r-2 border-white' 
-                        : 'bg-[#111] text-gray-200 border-l-2 border-[#444]'
-                    }`}>
-                      <p className="leading-relaxed">{msg.body}</p>
-                      <div className="text-[9px] mt-3 text-gray-500 font-bold tracking-[0.2em] uppercase">
-                        {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                {conversation?.messages?.map((msg: any) => {
+                  const isCustomer = msg.sender === 'CUSTOMER';
+                  return (
+                    <div key={msg.id} className={`flex ${isCustomer ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[90%] md:max-w-[80%] p-4 text-sm ${
+                        isCustomer 
+                          ? 'bg-[#1a1a1a] text-white border-r-2 border-white' 
+                          : 'bg-[#111] text-gray-200 border-l-2 border-[#444]'
+                      }`}>
+                        <div className="text-[10px] text-gray-400 font-bold tracking-[0.2em] mb-2 uppercase">
+                          {isCustomer ? 'You' : 'Customer Care'}
+                        </div>
+                        {msg.body && <p className="leading-relaxed whitespace-pre-wrap">{msg.body}</p>}
+                        
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className="mt-3 flex flex-col gap-2">
+                            {msg.attachments.map((att: any) => (
+                              <div key={att.id} className="border border-[#333] bg-[#0a0a0a] p-2">
+                                {att.mimeType?.startsWith('image/') ? (
+                                  <img src={att.url} alt={att.filename} className="max-w-full max-h-48 object-contain" />
+                                ) : (
+                                  <a href={att.url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs truncate block">
+                                    📎 {att.filename}
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className="text-[9px] mt-3 text-gray-500 font-bold tracking-[0.2em] uppercase text-right">
+                          {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <form onSubmit={sendMessage} className="p-4 md:p-6 border-t border-[#222] bg-[#111]">

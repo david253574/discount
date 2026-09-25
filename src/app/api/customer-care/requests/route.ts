@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendCustomerCarePushNotification } from '@/lib/notifications'
+import { getSession } from '@/lib/auth'
 
 import { sendCustomerCareNotification } from '@/lib/whatsapp'
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession() as any;
+    if (!session || !session.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const data = await request.json()
     
     if (!data.modelId || !data.variantId) {
@@ -46,6 +52,7 @@ export async function POST(request: Request) {
     }
 
     let orderData: any = {
+      userId: session.id,
       modelId: data.modelId,
       variantId: data.variantId,
       name: data.name || 'Customer',
@@ -58,6 +65,21 @@ export async function POST(request: Request) {
     
     let paymentIdForAudit = '';
     const order = await prisma.$transaction(async (tx) => {
+      // Duplicate protection check
+      const existingOrder = await tx.order.findFirst({
+        where: {
+          userId: session.id,
+          modelId: data.modelId,
+          variantId: data.variantId,
+          paymentType: 'CUSTOMER_CARE',
+          status: 'PENDING'
+        }
+      });
+      
+      if (existingOrder) {
+        return existingOrder;
+      }
+
       let actualFinalAmt = finalAmount;
       if (actualFinalAmt === null) {
         const v = await tx.variant.findUnique({ where: { id: data.variantId } })
