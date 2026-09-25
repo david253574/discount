@@ -31,17 +31,54 @@ export default function AdminConversationsPage() {
   }, []);
 
   useEffect(() => {
+    let ablyClient: any = null;
+    let channel: any = null;
+    let unmounted = false;
+
     if (activeId) {
       const fetchActive = async () => {
         const res = await fetch(`/api/payment/${activeId}`);
-        if (res.ok) {
+        if (res.ok && !unmounted) {
           const data = await res.json();
           setActiveConv({ ...data.conversation, order: data.payment.order, payment: data.payment });
         }
       };
       fetchActive();
-      const intv = setInterval(fetchActive, 5000);
-      return () => clearInterval(intv);
+
+      const setupAbly = async () => {
+        if (process.env.NEXT_PUBLIC_ABLY_POLLING_FALLBACK === 'true') return;
+        try {
+          const { Realtime } = await import('ably');
+          const tokenResponse = await fetch(`/api/ably/auth?orderId=${activeId}`);
+          if (!tokenResponse.ok || unmounted) return;
+          const tokenData = await tokenResponse.json();
+
+          ablyClient = new Realtime({ authCallback: (_data: any, cb: any) => cb(null, tokenData) });
+          channel = ablyClient.channels.get(`private:customer-care:order:${activeId}`);
+
+          channel.subscribe('message.created', () => {
+            if (!unmounted) fetchActive();
+          });
+
+          ablyClient.connection.on('connected', () => {
+            if (!unmounted) fetchActive();
+          });
+        } catch (err) {
+          console.warn('[Ably] Subscription failed', err);
+        }
+      };
+      
+      setupAbly();
+
+      const intv = process.env.NEXT_PUBLIC_ABLY_POLLING_FALLBACK === 'true' ? setInterval(fetchActive, 5000) : null;
+      return () => {
+        unmounted = true;
+        if (channel) { try { channel.unsubscribe(); } catch (_) {} }
+        if (ablyClient) { try { ablyClient.close(); } catch (_) {} }
+        if (intv) clearInterval(intv);
+      };
+    } else {
+      setActiveConv(null);
     }
   }, [activeId]);
 
@@ -136,13 +173,13 @@ export default function AdminConversationsPage() {
                   Conversation Started
                 </div>
                 {activeConv.messages?.map((msg: any) => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'CUSTOMER_CARE' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex ${(msg.sender === 'CUSTOMER_CARE' || msg.sender === 'ADMIN') ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[70%] rounded-2xl p-3 px-4 text-sm ${
-                      msg.sender === 'CUSTOMER_CARE' 
+                      (msg.sender === 'CUSTOMER_CARE' || msg.sender === 'ADMIN') 
                         ? 'bg-[#1d4ed8] text-white rounded-br-sm' 
                         : 'bg-[#222] text-gray-200 border border-[#333] rounded-bl-sm'
                     }`}>
-                      <div className="text-[10px] mb-1 font-bold opacity-75">{msg.sender === 'CUSTOMER_CARE' ? 'CUSTOMER CARE' : activeConv.order?.name.toUpperCase()}</div>
+                      <div className="text-[10px] mb-1 font-bold opacity-75">{(msg.sender === 'CUSTOMER_CARE' || msg.sender === 'ADMIN') ? 'CUSTOMER CARE' : activeConv.order?.name.toUpperCase()}</div>
                       {msg.body}
                       <div className={`text-[9px] mt-2 text-right opacity-50`}>
                         {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

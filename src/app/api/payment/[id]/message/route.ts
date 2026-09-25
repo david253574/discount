@@ -29,7 +29,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const actualSender = isStaff ? 'CUSTOMER_CARE' : 'CUSTOMER';
+    let actualSender = 'CUSTOMER';
+    if (session.role === 'ADMIN') actualSender = 'ADMIN';
+    else if (session.role === 'CUSTOMER_CARE') actualSender = 'CUSTOMER_CARE';
 
     const msg = await prisma.message.create({
       data: {
