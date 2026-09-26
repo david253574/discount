@@ -127,16 +127,41 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatBody.trim()) return;
+    if (!chatBody.trim() && !uploadFile) return;
     setSending(true);
     try {
+      let attachmentJson = null;
+      if (uploadFile) {
+        const uploadRes = await fetch(`/api/upload?filename=${encodeURIComponent(uploadFile.name)}`, {
+          method: 'POST',
+          body: uploadFile
+        });
+        if (uploadRes.ok) {
+          const upData = await uploadRes.json();
+          attachmentJson = {
+            filename: uploadFile.name,
+            mimeType: uploadFile.type || 'application/octet-stream',
+            size: uploadFile.size,
+            url: upData.url
+          };
+        } else {
+          alert('Failed to upload file');
+          setSending(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/payment/${orderId}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: chatBody })
+        body: JSON.stringify({ 
+          body: chatBody,
+          attachments: attachmentJson ? [attachmentJson] : undefined
+        })
       });
       if (res.ok) {
         setChatBody("");
+        setUploadFile(null);
         fetchData();
       }
     } finally {
