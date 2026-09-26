@@ -75,11 +75,11 @@ export async function publishMessageCreated(
 export async function createTokenRequest(
   channel: string,
   clientId: string,
-): Promise<Ably.TokenRequest> {
+): Promise<Ably.TokenDetails> {
   const rest = getAblyRest();
   if (!rest) throw new Error('Ably is not configured');
 
-  return rest.auth.createTokenRequest({
+  return rest.auth.requestToken({
     clientId,
     capability: {
       [channel]: ['subscribe'],
