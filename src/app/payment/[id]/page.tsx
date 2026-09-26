@@ -459,18 +459,28 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
                 })}
               </div>
 
+              {uploadFile && (
+                <div className="p-3 px-6 bg-[#1a1a1a] border-t border-[#222] flex items-center justify-between">
+                  <span className="text-xs text-green-400">📎 {uploadFile.name}</span>
+                  <button type="button" onClick={() => setUploadFile(null)} className="text-xs text-red-500 hover:underline">Remove</button>
+                </div>
+              )}
               <form onSubmit={sendMessage} className="p-4 md:p-6 border-t border-[#222] bg-[#111]">
                 <div className="relative flex items-center">
+                  <label className="absolute left-2 p-2.5 text-gray-400 cursor-pointer hover:text-white transition-colors" title="Attach file">
+                    <input type="file" className="hidden" onChange={(e) => { if (e.target.files && e.target.files[0]) setUploadFile(e.target.files[0]); e.target.value = ''; }} />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  </label>
                   <input 
                     type="text"
                     value={chatBody}
                     onChange={e => setChatBody(e.target.value)}
                     placeholder="Type a message..."
-                    className="w-full bg-[#0a0a0a] border border-[#333] pl-4 pr-14 py-4 text-sm text-white focus:outline-none focus:border-white transition-colors rounded-none placeholder:tracking-wider"
+                    className="w-full bg-[#0a0a0a] border border-[#333] pl-12 pr-20 py-4 text-sm text-white focus:outline-none focus:border-white transition-colors rounded-none placeholder:tracking-wider"
                   />
                   <button 
                     type="submit"
-                    disabled={sending || !chatBody.trim()}
+                    disabled={sending || (!chatBody.trim() && !uploadFile)}
                     className="absolute right-2 p-2.5 text-white bg-transparent disabled:opacity-50 hover:bg-[#222] transition-colors rounded-none"
                   >
                     <span className="text-[10px] font-bold tracking-[0.2em] uppercase mr-1">SEND</span>
