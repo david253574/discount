@@ -13,9 +13,11 @@ export async function POST(request: Request) {
     // Rate limiting: In production you'd use upstash/redis or similar here. 
     // We enforce name matching to reduce bcrypt overhead.
     
-    // Find active credentials for this name (case-insensitive in JS)
+    // Find active OR resumable credentials for this name (case-insensitive in JS)
     const allPasses = await prisma.discountCredential.findMany({
-      where: { status: 'ACTIVE' }
+      where: { 
+        status: { in: ['ACTIVE', 'REDEEMED'] } 
+      }
     })
     
     const candidatePasses = allPasses.filter(p => p.recipientName.toLowerCase() === name.trim().toLowerCase())
@@ -23,6 +25,10 @@ export async function POST(request: Request) {
     for (const pass of candidatePasses) {
       const isValid = await bcrypt.compare(pin, pass.pinHash)
       if (isValid) {
+        // If it's already REDEEMED but has no associated order, it's fully consumed
+        if (pass.status === 'REDEEMED' && !pass.redeemedOrderId) {
+          continue;
+        }
         // Fetch pricing
         const allEligible = await prisma.discountEligibility.findMany()
         const person = allEligible.find(e => e.name.toLowerCase() === pass.recipientName.toLowerCase())
