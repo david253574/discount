@@ -89,7 +89,8 @@ export async function POST(request: Request) {
       
       const createdOrder = await tx.order.create({ data: orderData })
       
-      const btcAddress = process.env.BTC_ADDRESS || 'bc1qtest1234567890abcdefghijklmnopqrstuvwx';
+      const btcSetting = await tx.setting.findUnique({ where: { key: 'BTC_ADDRESS' } });
+      const btcAddress = btcSetting?.value || process.env.BTC_ADDRESS || 'bc1qtest1234567890abcdefghijklmnopqrstuvwx';
       const createdPayment = await tx.payment.create({
         data: {
           orderId: createdOrder.id,

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Car, ShoppingCart, Gift, Bitcoin, MessageSquare } from "lucide-react";
+import { LogOut, LayoutDashboard, Car, ShoppingCart, Gift, Bitcoin, MessageSquare, Settings } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<{ email: string; role: string } | null>(null);
@@ -81,6 +81,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/passes" className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${pathname.startsWith('/admin/passes') ? 'bg-[#222]' : 'hover:bg-[#1a1a1a]'}`}>
             <Gift size={20} />
             <span className="text-sm font-semibold tracking-wider">PASSES</span>
+          </Link>
+          <div className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-4 mb-1 pl-3">SYSTEM</div>
+          <Link href="/admin/settings" className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${pathname.startsWith('/admin/settings') ? 'bg-[#222]' : 'hover:bg-[#1a1a1a]'}`}>
+            <Settings size={20} />
+            <span className="text-sm font-semibold tracking-wider">SETTINGS</span>
           </Link>
         </nav>
         <button onClick={handleLogout} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1a1a1a] transition-colors mt-auto text-gray-400 hover:text-white">

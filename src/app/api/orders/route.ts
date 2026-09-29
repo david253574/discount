@@ -82,7 +82,8 @@ export async function POST(request: Request) {
       const createdOrder = await tx.order.create({ data: orderData })
       
       if (data.paymentType === 'BITCOIN' || data.paymentType === 'CUSTOMER_CARE') {
-        const btcAddress = process.env.BTC_ADDRESS || 'bc1qtest1234567890abcdefghijklmnopqrstuvwx';
+        const btcSetting = await tx.setting.findUnique({ where: { key: 'BTC_ADDRESS' } });
+        const btcAddress = btcSetting?.value || process.env.BTC_ADDRESS || 'bc1qtest1234567890abcdefghijklmnopqrstuvwx';
         
         await tx.payment.create({
           data: {
