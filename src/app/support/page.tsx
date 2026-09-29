@@ -14,7 +14,7 @@ export default function SupportPage() {
           <Link href="/orders" className="bg-white text-black font-bold tracking-widest text-xs px-8 py-3 hover:bg-gray-200 transition-colors">
             GO TO ORDERS
           </Link>
-          <a href="mailto:support@tesla.com" className="bg-[#111] border border-[#333] text-white font-bold tracking-widest text-xs px-8 py-3 hover:bg-[#222] transition-colors">
+          <a href="mailto:customercare@tracking.courier.hub" className="bg-[#111] border border-[#333] text-white font-bold tracking-widest text-xs px-8 py-3 hover:bg-[#222] transition-colors">
             GENERAL EMAIL
           </a>
         </div>

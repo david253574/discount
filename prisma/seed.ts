@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../src/lib/prisma'
 import bcrypt from 'bcryptjs'
-
-const prisma = new PrismaClient()
 
 async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10)
@@ -84,7 +82,49 @@ async function main() {
     },
   })
 
-  console.log({ model3, modelY, cybertruck })
+  const modelS = await prisma.vehicleModel.upsert({
+    where: { slug: 'model-s' },
+    update: {},
+    create: {
+      slug: 'model-s',
+      name: 'Model S',
+      subtitle: 'Dual Motor All-Wheel Drive',
+      image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=2070&auto=format&fit=crop', // Reusing placeholder since we don't have a specific URL, but actually let's use a Model S image URL if possible, or leave as is.
+      range: '402 mi',
+      speed: '130 mph',
+      acceleration: '3.1 s',
+      price: 74990,
+      variants: {
+        create: [
+          { slug: 'long-range', name: 'Model S Long Range', range: '402 mi', acceleration: '3.1 s', speed: '130 mph', price: 74990, popular: true },
+          { slug: 'plaid', name: 'Model S Plaid', range: '359 mi', acceleration: '1.99 s', speed: '200 mph', price: 89990 },
+        ]
+      }
+    },
+  })
+
+  const modelX = await prisma.vehicleModel.upsert({
+    where: { slug: 'model-x' },
+    update: {},
+    create: {
+      slug: 'model-x',
+      name: 'Model X',
+      subtitle: 'Built for Utility and Performance',
+      image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?q=80&w=2071&auto=format&fit=crop',
+      range: '335 mi',
+      speed: '149 mph',
+      acceleration: '3.8 s',
+      price: 79990,
+      variants: {
+        create: [
+          { slug: 'long-range', name: 'Model X Long Range', range: '335 mi', acceleration: '3.8 s', speed: '149 mph', price: 79990, popular: true },
+          { slug: 'plaid', name: 'Model X Plaid', range: '326 mi', acceleration: '2.5 s', speed: '149 mph', price: 94990 },
+        ]
+      }
+    },
+  })
+
+  console.log({ model3, modelY, cybertruck, modelS, modelX })
 }
 
 main()
