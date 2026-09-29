@@ -22,9 +22,25 @@ export async function POST(request: Request) {
       const pass = await prisma.discountCredential.findUnique({
         where: { reference: data.discountReference }
       });
-      if (!pass || pass.status !== 'ACTIVE') {
-        return NextResponse.json({ error: 'Invalid or redeemed discount credential' }, { status: 400 })
+
+      if (!pass || pass.status === 'REVOKED') {
+        return NextResponse.json({ error: 'Invalid or revoked discount credential' }, { status: 400 })
       }
+
+      // If already REDEEMED, check if it was for an existing order we can resume
+      if (pass.status === 'REDEEMED') {
+        if (pass.redeemedOrderId) {
+          // Return the existing order so the client can redirect to its payment page
+          const existingOrder = await prisma.order.findUnique({
+            where: { id: pass.redeemedOrderId }
+          });
+          if (existingOrder) {
+            return NextResponse.json({ success: true, order: existingOrder, resumed: true })
+          }
+        }
+        return NextResponse.json({ error: 'Discount credential has already been redeemed' }, { status: 400 })
+      }
+
       if (pass.recipientName.toLowerCase() !== data.name.trim().toLowerCase()) {
         return NextResponse.json({ error: 'Discount pass name does not match order name' }, { status: 400 })
       }
@@ -43,12 +59,6 @@ export async function POST(request: Request) {
           discountAmount = variant.price - finalAmount;
         }
       }
-      
-      // Mark as redeemed
-      await prisma.discountCredential.update({
-        where: { reference: data.discountReference },
-        data: { status: 'REDEEMED', redeemedAt: new Date() }
-      })
     }
 
     let orderData: any = {
@@ -103,6 +113,16 @@ export async function POST(request: Request) {
           }
         })
       }
+
+      // Mark discount pass as REDEEMED with the orderId, inside the transaction
+      // so if anything fails the pass stays ACTIVE and user can retry
+      if (data.discountReference) {
+        await tx.discountCredential.update({
+          where: { reference: data.discountReference },
+          data: { status: 'REDEEMED', redeemedAt: new Date(), redeemedOrderId: createdOrder.id }
+        })
+      }
+
       return createdOrder;
     });
 

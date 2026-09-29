@@ -108,13 +108,14 @@ model DiscountEligibility {
 }
 
 model DiscountCredential {
-  id           String   @id @default(cuid())
-  recipientName String
-  pinHash      String
-  reference    String   @unique
-  status       String   @default("ACTIVE") // ACTIVE, REDEEMED, REVOKED
-  createdAt    DateTime @default(now())
-  redeemedAt   DateTime?
+  id              String    @id @default(cuid())
+  recipientName   String
+  pinHash         String
+  reference       String    @unique
+  status          String    @default("ACTIVE") // ACTIVE, REDEEMED, REVOKED
+  createdAt       DateTime  @default(now())
+  redeemedAt      DateTime?
+  redeemedOrderId String?   // orderId of the order this pass was used for
 }
 
 model Payment {

@@ -23,8 +23,22 @@ export async function POST(request: Request) {
       const pass = await prisma.discountCredential.findUnique({
         where: { reference: data.discountReference }
       });
-      if (!pass || pass.status !== 'ACTIVE') {
-        return NextResponse.json({ error: 'Invalid or redeemed discount credential' }, { status: 400 })
+
+      if (!pass || pass.status === 'REVOKED') {
+        return NextResponse.json({ error: 'Invalid or revoked discount credential' }, { status: 400 })
+      }
+
+      // If already REDEEMED, check if it was for an existing order we can resume
+      if (pass.status === 'REDEEMED') {
+        if (pass.redeemedOrderId) {
+          const existingOrder = await prisma.order.findUnique({
+            where: { id: pass.redeemedOrderId }
+          });
+          if (existingOrder) {
+            return NextResponse.json({ success: true, order: existingOrder, resumed: true })
+          }
+        }
+        return NextResponse.json({ error: 'Discount credential has already been redeemed' }, { status: 400 })
       }
 
       // Fetch pricing config
@@ -41,12 +55,6 @@ export async function POST(request: Request) {
           discountAmount = variant.price - finalAmount;
         }
       }
-      
-      // Mark as redeemed
-      await prisma.discountCredential.update({
-        where: { reference: data.discountReference },
-        data: { status: 'REDEEMED', redeemedAt: new Date() }
-      })
     }
 
     let orderData: any = {
@@ -108,6 +116,15 @@ export async function POST(request: Request) {
           status: 'OPEN'
         }
       })
+
+      // Mark discount pass as REDEEMED with the orderId, inside the transaction
+      // so if anything fails the pass stays ACTIVE and user can retry
+      if (data.discountReference) {
+        await tx.discountCredential.update({
+          where: { reference: data.discountReference },
+          data: { status: 'REDEEMED', redeemedAt: new Date(), redeemedOrderId: createdOrder.id }
+        })
+      }
       
       return createdOrder;
     });

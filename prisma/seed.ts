@@ -67,7 +67,7 @@ async function main() {
       slug: 'cybertruck',
       name: 'Cybertruck',
       subtitle: 'Built for any planet.',
-      image: 'https://images.unsplash.com/photo-1707920366835-9005ea680e9f?q=80&w=2070&auto=format&fit=crop',
+      image: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Tesla_Cybertruck_unveiling.jpg',
       range: '340 mi',
       speed: '112 mph',
       acceleration: '2.6 s',

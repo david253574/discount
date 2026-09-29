@@ -20,6 +20,45 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [shipping, setShipping] = useState({ name: "", address: "", city: "", zip: "" });
   const [discountAmount, setDiscountAmount] = useState<number | null>(null);
 
+  const STORAGE_KEY = `order_form_${id}`;
+
+  // On mount: restore saved form state, then check if discount ref already has an order to resume
+  useEffect(() => {
+    // Restore saved form fields
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.shipping) setShipping(parsed.shipping);
+        if (parsed.paymentType) setPaymentType(parsed.paymentType);
+      }
+    } catch (_) {}
+
+    // Check if discount reference already has a completed order we should jump to
+    const discountRef = localStorage.getItem('verifiedDiscountReference');
+    if (discountRef) {
+      fetch('/api/orders/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discountReference: discountRef })
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.order) {
+            // Clear discount data since it's been consumed and we're resuming
+            localStorage.removeItem('verifiedDiscountName');
+            localStorage.removeItem('verifiedDiscountReference');
+            localStorage.removeItem('verifiedDiscountAmount');
+            localStorage.removeItem(STORAGE_KEY);
+            router.replace(`/payment/${data.order.id}`);
+          }
+        })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch model data
   useEffect(() => {
     fetch(`/api/models/${id}`)
       .then(res => res.json())
@@ -32,6 +71,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       });
   }, [id]);
 
+  // Persist form to localStorage whenever fields change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ shipping, paymentType }));
+    } catch (_) {}
+  }, [shipping, paymentType, STORAGE_KEY]);
+
+  // Apply discount amount once variant is known
   useEffect(() => {
     const verifiedRef = localStorage.getItem('verifiedDiscountReference');
     const amtStr = localStorage.getItem('verifiedDiscountAmount');
@@ -65,14 +112,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       });
       if (res.ok) {
         const data = await res.json();
+        // Clear discount & form state — order is created (or resumed), no longer needed
+        localStorage.removeItem('verifiedDiscountName');
+        localStorage.removeItem('verifiedDiscountReference');
+        localStorage.removeItem('verifiedDiscountAmount');
+        localStorage.removeItem(STORAGE_KEY);
         router.push(`/payment/${data.order.id}`);
-      
       } else {
         const err = await res.json().catch(()=>({}));
         alert(err.error || 'An error occurred processing your request.');
       }
     } catch (_e) {
-      alert('Unable to connect to Customer Care. Please try again.');
+      alert('Unable to connect. Please try again.');
     } finally {
       setSubmitting(false);
     }
