@@ -30,6 +30,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         const parsed = JSON.parse(saved);
         if (parsed.shipping) setShipping(parsed.shipping);
         if (parsed.paymentType) setPaymentType(parsed.paymentType);
+        if (parsed.step) setStep(parsed.step);
       }
     } catch (_) {}
 
@@ -73,9 +74,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   // Persist form to localStorage whenever fields change
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ shipping, paymentType }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ shipping, paymentType, step }));
     } catch (_) {}
-  }, [shipping, paymentType, STORAGE_KEY]);
+  }, [shipping, paymentType, step, STORAGE_KEY]);
 
   // Apply discount amount once variant is known
   useEffect(() => {

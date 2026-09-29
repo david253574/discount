@@ -56,6 +56,12 @@ export default function CheckDiscountPage() {
       
       const data = await res.json();
       if (data.eligible) {
+        if (data.resumedOrderId) {
+          // If they already have an order, redirect straight to payment page
+          router.push(`/payment/${data.resumedOrderId}`);
+          return;
+        }
+
         setVerifiedName(data.name || trimmedName);
         setPricing(data.pricing);
         setStatus("ELIGIBLE");

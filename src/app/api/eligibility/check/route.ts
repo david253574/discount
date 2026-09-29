@@ -44,7 +44,8 @@ export async function POST(request: Request) {
           eligible: true, 
           reference: pass.reference,
           name: pass.recipientName,
-          pricing
+          pricing,
+          resumedOrderId: pass.redeemedOrderId || null
         })
       }
     }
