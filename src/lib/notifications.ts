@@ -111,3 +111,61 @@ export async function sendNewMessagePushNotification(orderId: string, sender: st
     console.error('Failed to send new message push notification:', error);
   }
 }
+
+export async function sendBitcoinPaymentSubmittedNotification(data: {
+  orderId: string;
+  customerName: string;
+  vehicleName: string;
+  amountDue: number;
+  txid: string;
+}) {
+  try {
+    const staffMembers = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      include: { deviceTokens: true }
+    });
+
+    const tokens: string[] = [];
+    staffMembers.forEach(staff => {
+      staff.deviceTokens.forEach(dt => tokens.push(dt.token));
+    });
+
+    if (tokens.length === 0) {
+      console.log('No registered admin devices to notify of Bitcoin payment.');
+      return;
+    }
+
+    const shortTxid = data.txid.length > 12 ? `${data.txid.substring(0, 12)}...` : data.txid;
+    const payload = {
+      notification: {
+        title: '₿ Bitcoin Payment Submitted',
+        body: `${data.customerName} submitted a TXID for review.\n${data.vehicleName} • $${data.amountDue.toLocaleString()} • TXID: ${shortTxid}`,
+      },
+      data: {
+        type: 'BITCOIN_PAYMENT_SUBMITTED',
+        orderId: data.orderId,
+      },
+      tokens,
+    };
+
+    if (getApps().length > 0) {
+      const response = await getMessaging().sendEachForMulticast(payload);
+      console.log(`[Bitcoin Submit] FCM sent: ${response.successCount} ok, ${response.failureCount} failed.`);
+
+      if (response.failureCount > 0) {
+        response.responses.forEach((resp: any, idx: number) => {
+          if (!resp.success && (
+            resp.error?.code === 'messaging/invalid-registration-token' ||
+            resp.error?.code === 'messaging/registration-token-not-registered'
+          )) {
+            prisma.deviceToken.delete({ where: { token: tokens[idx] } }).catch(e => console.error(e));
+          }
+        });
+      }
+    } else {
+      console.log('[MOCK FCM] Would have sent Bitcoin payment submitted notification:', payload);
+    }
+  } catch (error) {
+    console.error('Failed to send Bitcoin payment submitted notification:', error);
+  }
+}
