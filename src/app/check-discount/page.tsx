@@ -69,6 +69,7 @@ export default function CheckDiscountPage() {
         setPricing(null);
         localStorage.removeItem("verifiedDiscountName");
         localStorage.removeItem("verifiedDiscountReference");
+        localStorage.removeItem("verifiedDiscountAmount");
       }
     } catch (_err) {
       setStatus("ERROR");

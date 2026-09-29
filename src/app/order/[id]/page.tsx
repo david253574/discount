@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import AppLayout from '@/components/Layout';
 import { use } from 'react';
 import { ChevronRight } from 'lucide-react';
-import Link from 'next/link';
 
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();

@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await getSession()
+    if (!user || user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const settings = await prisma.setting.findMany()
     const map = Object.fromEntries(settings.map(s => [s.key, s.value]))
     return NextResponse.json({ settings: map })
@@ -14,6 +19,11 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const user = await getSession()
+    if (!user || user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { key, value } = body
 

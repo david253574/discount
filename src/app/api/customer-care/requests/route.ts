@@ -129,54 +129,53 @@ export async function POST(request: Request) {
       return createdOrder;
     });
 
-    // Fire WhatsApp notification asynchronously (fire and forget)
-    // We don't await it to block the response, but we process it in background.
-    // Actually, in serverless environments, fire-and-forget might be killed.
-    // It's safer to await it so the function doesn't exit before fetch completes.
-    try {
-      const variantInfo = await prisma.variant.findUnique({ 
-        where: { id: data.variantId },
-        include: { model: true }
-      });
-      
-      const vName = variantInfo ? `${variantInfo.model.name} - ${variantInfo.name}` : 'Unknown Vehicle';
-      
-      const waResult = await sendCustomerCareNotification({
-        orderId: order.id,
-        customerName: order.name,
-        vehicleName: vName,
-        amountDue: order.finalAmount || 0
-      });
-      
-      await prisma.paymentAuditLog.create({
-        data: {
-          paymentId: paymentIdForAudit,
-          action: waResult.success ? 'WHATSAPP_NOTIFICATION_SENT' : 'WHATSAPP_NOTIFICATION_FAILED',
-          reason: waResult.reason || waResult.messageId || null
-        }
-      });
-    } catch (waError) {
-      console.error('Failed to send WhatsApp notification', waError);
-      await prisma.paymentAuditLog.create({
-        data: {
-          paymentId: paymentIdForAudit,
-          action: 'WHATSAPP_NOTIFICATION_FAILED',
-          reason: 'Internal exception during notification'
-        }
-      }).catch(() => {});
-    }
+    // Only send notifications for newly created orders (not duplicates/resumes)
+    if (paymentIdForAudit) {
+      // Fire WhatsApp notification
+      try {
+        const variantInfo = await prisma.variant.findUnique({ 
+          where: { id: data.variantId },
+          include: { model: true }
+        });
+        
+        const vName = variantInfo ? `${variantInfo.model.name} - ${variantInfo.name}` : 'Unknown Vehicle';
+        
+        const waResult = await sendCustomerCareNotification({
+          orderId: order.id,
+          customerName: order.name,
+          vehicleName: vName,
+          amountDue: order.finalAmount || 0
+        });
+        
+        await prisma.paymentAuditLog.create({
+          data: {
+            paymentId: paymentIdForAudit,
+            action: waResult.success ? 'WHATSAPP_NOTIFICATION_SENT' : 'WHATSAPP_NOTIFICATION_FAILED',
+            reason: waResult.reason || waResult.messageId || null
+          }
+        });
+      } catch (waError) {
+        console.error('Failed to send WhatsApp notification', waError);
+        await prisma.paymentAuditLog.create({
+          data: {
+            paymentId: paymentIdForAudit,
+            action: 'WHATSAPP_NOTIFICATION_FAILED',
+            reason: 'Internal exception during notification'
+          }
+        }).catch(() => {});
+      }
 
-    
-    // Send FCM notification (non-blocking)
-    const variantInfo = await prisma.variant.findUnique({ where: { id: data.variantId }, include: { model: true } });
-    const vehicleName = variantInfo ? `${variantInfo.model.name} ${variantInfo.name}` : 'Vehicle';
-    
-    sendCustomerCarePushNotification({
-      orderId: order.id,
-      name: orderData.name,
-      vehicleName: vehicleName,
-      amount: orderData.finalAmount,
-    }).catch(e => console.error("Non-blocking notification error", e));
+      // Send FCM notification (non-blocking)
+      const variantInfo = await prisma.variant.findUnique({ where: { id: data.variantId }, include: { model: true } });
+      const vehicleName = variantInfo ? `${variantInfo.model.name} ${variantInfo.name}` : 'Vehicle';
+      
+      sendCustomerCarePushNotification({
+        orderId: order.id,
+        name: orderData.name,
+        vehicleName: vehicleName,
+        amount: orderData.finalAmount,
+      }).catch(e => console.error("Non-blocking notification error", e));
+    }
 
     return NextResponse.json({ success: true, order })
 
